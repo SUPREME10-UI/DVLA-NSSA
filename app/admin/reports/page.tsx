@@ -15,7 +15,10 @@ import {
   Building2,
   ChevronRight,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
+import { downloadCSV } from "../../utils/export";
+import { useToast } from "../../components/Toast";
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -60,7 +63,7 @@ const exportCards = [
   },
   {
     title:   "Late Arrivals",
-    desc:    "All employees who checked in after the cut-off time.",
+    desc:    "All NSS Personnel who checked in after the cut-off time.",
     icon:    Clock,
     format:  "CSV",
     accent:  "#7A5C00",
@@ -68,7 +71,7 @@ const exportCards = [
   },
   {
     title:   "Absence Report",
-    desc:    "Employees who did not scan at all on selected days.",
+    desc:    "NSS Personnel who did not scan at all on selected days.",
     icon:    UserX,
     format:  "CSV",
     accent:  C.red,
@@ -80,7 +83,7 @@ const weeklyTrend = [72, 85, 78, 90, 83, 88, 92]; // % present
 const dayLabels   = ["Mon", "Tue", "Wed", "Thu", "Fri", "Mon", "Tue"];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
-function ExportCard({ title, desc, icon: Icon, format, accent, accentBg }: typeof exportCards[0]) {
+function ExportCard({ title, desc, icon: Icon, format, accent, accentBg, onExport }: typeof exportCards[0] & { onExport?: () => void }) {
   return (
     <div style={{
       borderRadius: 12, padding: "16px",
@@ -104,14 +107,19 @@ function ExportCard({ title, desc, icon: Icon, format, accent, accentBg }: typeo
           <div style={{ fontSize: 11, color: C.outerGreen, marginTop: 2, lineHeight: 1.4 }}>{desc}</div>
         </div>
       </div>
-      <button style={{
-        display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start",
-        padding: "6px 13px", borderRadius: 7, cursor: "pointer",
-        border: `1px solid ${accent}33`,
-        background: accentBg,
-        color: accent, fontSize: 11, fontWeight: 700,
-        transition: "opacity 0.15s",
-      }}>
+      <button
+        onClick={onExport}
+        style={{
+          display: "flex", alignItems: "center", gap: 6, alignSelf: "flex-start",
+          padding: "6px 13px", borderRadius: 7, cursor: "pointer",
+          border: `1px solid ${accent}33`,
+          background: accentBg,
+          color: accent, fontSize: 11, fontWeight: 700,
+          transition: "opacity 0.15s, transform 0.1s",
+        }}
+        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.85"; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+      >
         <Download size={11} /> Export {format}
       </button>
     </div>
@@ -184,12 +192,74 @@ function SparkLine() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ReportsPage() {
+  const { showToast } = useToast();
   const [selectedPeriod, setSelectedPeriod] = useState<"today" | "week" | "month">("week");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const avgAttendance = Math.round(weeklyTrend.reduce((a, b) => a + b, 0) / weeklyTrend.length);
 
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+      showToast("Analytics metrics and departmental trends refreshed", "success");
+    }, 600);
+  };
+
+  const handleExportCard = (title: string, format: string) => {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    if (title === "Daily Summary") {
+      const filename = `DVLA-Daily-Attendance-Summary-${dateStr}.csv`;
+      const headers = ["Department", "Present", "Total Personnel", "Attendance Rate (%)", "Trend Direction"];
+      const rows = departments.map(d => [
+        d.name,
+        d.present,
+        d.total,
+        Math.round((d.present / d.total) * 100),
+        d.trend > 0 ? "+1" : d.trend < 0 ? "-1" : "0"
+      ]);
+      downloadCSV(filename, headers, rows);
+      showToast(`Exported Daily Attendance Summary (${format}) to ${filename}`, "success");
+    } else if (title === "Monthly Report") {
+      const filename = `DVLA-Monthly-Attendance-Report-${dateStr}.csv`;
+      const headers = ["Day Label", "Attendance & Punctuality (%)", "Active Gates", "Status"];
+      const rows = dayLabels.map((d, i) => [
+        d,
+        weeklyTrend[i] || 85,
+        "Gate 1, Gate 2",
+        (weeklyTrend[i] || 85) >= 80 ? "Target Met" : "Needs Review"
+      ]);
+      downloadCSV(filename, headers, rows);
+      showToast(`Exported Monthly Attendance Report (${format}) to ${filename}`, "success");
+    } else if (title === "Late Arrivals") {
+      const filename = `DVLA-NSS-Late-Arrivals-Report-${dateStr}.csv`;
+      const headers = ["NSS ID", "Full Name", "Department", "Cut-off Time", "Check-in Time", "Minutes Late"];
+      const rows = [
+        ["NSS-014", "Sarah Malik", "HR", "09:00", "09:17", "17"],
+        ["NSS-058", "Esi Boateng", "IT", "09:00", "09:03", "3"],
+        ["NSS-029", "Daniel Mensah", "Operations", "09:00", "09:12", "12"],
+      ];
+      downloadCSV(filename, headers, rows);
+      showToast(`Exported Late Arrivals Report (${format}) to ${filename}`, "success");
+    } else {
+      // Absence Report
+      const filename = `DVLA-NSS-Absence-Report-${dateStr}.csv`;
+      const headers = ["NSS ID", "Full Name", "Department", "Date", "Status", "Reason / Tag"];
+      const rows = [
+        ["NSS-022", "Amina Yusuf", "Finance", dateStr, "Absent", "No scan recorded"],
+        ["NSS-061", "Kwame Asante", "Transport", dateStr, "Absent", "Duty Leave"],
+      ];
+      downloadCSV(filename, headers, rows);
+      showToast(`Exported Absence Report (${format}) to ${filename}`, "success");
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+      <style>{`
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        .spin-icon { animation: spin 0.8s linear infinite; }
+      `}</style>
 
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
@@ -211,15 +281,33 @@ export default function ReportsPage() {
           </p>
         </div>
 
-        <button style={{
-          display: "flex", alignItems: "center", gap: 7,
-          padding: "9px 14px", borderRadius: 9, cursor: "pointer",
-          border: `1px solid ${C.border}`, background: "#fff",
-          color: C.primaryDark, fontSize: 12, fontWeight: 600,
-          boxShadow: "none",
-        }}>
-          <Mail size={13} /> Schedule Email Reports
-        </button>
+        <div style={{ display: "flex", gap: 9 }}>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "9px 14px", borderRadius: 9, cursor: isRefreshing ? "default" : "pointer",
+              border: `1px solid ${C.border}`, background: "#fff",
+              color: C.primaryDark, fontSize: 12, fontWeight: 600,
+              opacity: isRefreshing ? 0.75 : 1,
+            }}
+          >
+            <RefreshCw size={13} className={isRefreshing ? "spin-icon" : ""} />
+            {isRefreshing ? "Refreshing..." : "Refresh"}
+          </button>
+          <button
+            onClick={() => handleExportCard("Daily Summary", "CSV")}
+            style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "9px 14px", borderRadius: 9, cursor: "pointer",
+              border: "none", background: C.primary,
+              color: "#fff", fontSize: 12, fontWeight: 700,
+            }}
+          >
+            <Download size={13} /> Export All
+          </button>
+        </div>
       </div>
 
       {/* ── Top KPI row ── */}
@@ -314,7 +402,13 @@ export default function ReportsPage() {
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {exportCards.map(card => <ExportCard key={card.title} {...card} />)}
+            {exportCards.map(card => (
+              <ExportCard
+                key={card.title}
+                {...card}
+                onExport={() => handleExportCard(card.title, card.format)}
+              />
+            ))}
           </div>
         </div>
 

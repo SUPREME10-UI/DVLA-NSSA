@@ -18,7 +18,11 @@ import {
   XCircle,
   AlertCircle,
   FileEdit,
+  RefreshCw,
+  X,
 } from "lucide-react";
+import { downloadCSV } from "../../utils/export";
+import { useToast } from "../../components/Toast";
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -54,12 +58,12 @@ type AttendanceRow = {
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 const mockAttendance: AttendanceRow[] = [
-  { id: 1, employeeId: "EMP-001", name: "John Doe",     department: "Operations", date: "2025-02-19", checkIn: "08:58", status: "Present", ip: "192.168.1.14", device: "Android / Chrome",  avatar: "JD" },
-  { id: 2, employeeId: "EMP-014", name: "Sarah Malik",  department: "HR",         date: "2025-02-19", checkIn: "09:17", status: "Late",    ip: "192.168.1.27", device: "iOS / Safari",      avatar: "SM" },
-  { id: 3, employeeId: "EMP-033", name: "Michael Chen", department: "IT",         date: "2025-02-18", checkIn: "08:47", status: "Present", ip: "192.168.1.19", device: "Windows / Edge",    avatar: "MC" },
-  { id: 4, employeeId: "EMP-022", name: "Amina Yusuf",  department: "Finance",    date: "2025-02-19", checkIn: "—",     status: "Absent",  ip: "—",            device: "—",                 avatar: "AY" },
-  { id: 5, employeeId: "EMP-047", name: "Kofi Mensah",  department: "Operations", date: "2025-02-19", checkIn: "08:55", status: "Present", ip: "192.168.1.31", device: "Android / Chrome",  avatar: "KM" },
-  { id: 6, employeeId: "EMP-058", name: "Esi Boateng",  department: "IT",         date: "2025-02-19", checkIn: "09:03", status: "Late",    ip: "192.168.1.44", device: "macOS / Firefox",   avatar: "EB" },
+  { id: 1, employeeId: "NSS-001", name: "John Doe",     department: "Operations", date: "2025-02-19", checkIn: "08:58", status: "Present", ip: "192.168.1.14", device: "Android / Chrome",  avatar: "JD" },
+  { id: 2, employeeId: "NSS-014", name: "Sarah Malik",  department: "HR",         date: "2025-02-19", checkIn: "09:17", status: "Late",    ip: "192.168.1.27", device: "iOS / Safari",      avatar: "SM" },
+  { id: 3, employeeId: "NSS-033", name: "Michael Chen", department: "IT",         date: "2025-02-18", checkIn: "08:47", status: "Present", ip: "192.168.1.19", device: "Windows / Edge",    avatar: "MC" },
+  { id: 4, employeeId: "NSS-022", name: "Amina Yusuf",  department: "Finance",    date: "2025-02-19", checkIn: "—",     status: "Absent",  ip: "—",            device: "—",                 avatar: "AY" },
+  { id: 5, employeeId: "NSS-047", name: "Kofi Mensah",  department: "Operations", date: "2025-02-19", checkIn: "08:55", status: "Present", ip: "192.168.1.31", device: "Android / Chrome",  avatar: "KM" },
+  { id: 6, employeeId: "NSS-058", name: "Esi Boateng",  department: "IT",         date: "2025-02-19", checkIn: "09:03", status: "Late",    ip: "192.168.1.44", device: "macOS / Firefox",   avatar: "EB" },
 ];
 
 const avatarBg = (id: number) =>
@@ -107,18 +111,103 @@ const inputStyle: React.CSSProperties = {
   transition: "border 0.15s",
 };
 
+// ─── Edit Attendance Modal ───────────────────────────────────────────────────
+function EditAttendanceModal({
+  record,
+  onClose,
+  onSave,
+}: {
+  record: AttendanceRow;
+  onClose: () => void;
+  onSave: (updated: AttendanceRow) => void;
+}) {
+  const [status, setStatus] = useState<AttendanceStatus>(record.status);
+  const [checkIn, setCheckIn] = useState(record.checkIn === "—" ? "09:00" : record.checkIn);
+  const [department, setDepartment] = useState(record.department);
+  const [notes, setNotes] = useState("");
+
+  const depts = ["Operations", "HR", "Finance", "IT", "Sales", "Marketing", "Transport"];
+  const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: C.outerGreen, marginBottom: 4, display: "block" };
+  const inp: React.CSSProperties = { width: "100%", padding: "8px 12px", borderRadius: 9, border: `1.5px solid ${C.border}`, background: "#fff", fontSize: 12, color: C.primaryDark, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
+
+  const handleSave = () => {
+    onSave({
+      ...record,
+      status,
+      checkIn: status === "Absent" ? "—" : checkIn,
+      department,
+    });
+    onClose();
+  };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(15,23,42,0.55)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 20, padding: 28, width: 380, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <span style={{ fontWeight: 800, fontSize: 15, color: C.primaryDark }}>Edit Attendance Record</span>
+            <div style={{ fontSize: 11, color: C.outerGreen }}>{record.name} ({record.employeeId}) · {record.date}</div>
+          </div>
+          <button onClick={onClose} style={{ border: "none", background: C.surface2, borderRadius: 7, width: 28, height: 28, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={13} color={C.outerGreen} />
+          </button>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <label style={lbl}>Status</label>
+            <select style={{ ...inp, appearance: "none" }} value={status} onChange={e => setStatus(e.target.value as AttendanceStatus)}>
+              <option value="Present">Present (On Time)</option>
+              <option value="Late">Late Arrival</option>
+              <option value="Absent">Absent</option>
+            </select>
+          </div>
+
+          {status !== "Absent" && (
+            <div>
+              <label style={lbl}>Check-In Time</label>
+              <input style={inp} type="time" value={checkIn} onChange={e => setCheckIn(e.target.value)} />
+            </div>
+          )}
+
+          <div>
+            <label style={lbl}>Department</label>
+            <select style={{ ...inp, appearance: "none" }} value={department} onChange={e => setDepartment(e.target.value)}>
+              {depts.map(d => <option key={d}>{d}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <label style={lbl}>Audit Note / Reason for Change</label>
+            <input style={inp} value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Approved official duty, badge scan error" />
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 9, border: `1px solid ${C.border}`, background: "#fff", color: C.primaryDark, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+          <button onClick={handleSave} style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: C.primary, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Save Record</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AttendancePage() {
+  const { showToast } = useToast();
   const [date, setDate]              = useState("2025-02-19");
   const [department, setDepartment]  = useState("all");
   const [employeeQuery, setQuery]    = useState("");
   const [statusFilter, setStatus]    = useState<AttendanceStatus | "all">("all");
+  const [records, setRecords]        = useState<AttendanceRow[]>(mockAttendance);
+  const [editRecord, setEditRecord]  = useState<AttendanceRow | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const departments = useMemo(() =>
-    Array.from(new Set(mockAttendance.map(r => r.department))), []);
+    Array.from(new Set(records.map(r => r.department))), [records]);
 
   const filtered = useMemo(() =>
-    mockAttendance.filter(row => {
+    records.filter(row => {
       const matchDate   = row.date === date;
       const matchDept   = department === "all" || row.department === department;
       const matchQuery  = !employeeQuery.trim() ||
@@ -126,7 +215,7 @@ export default function AttendancePage() {
         row.employeeId.toLowerCase().includes(employeeQuery.toLowerCase());
       const matchStatus = statusFilter === "all" || row.status === statusFilter;
       return matchDate && matchDept && matchQuery && matchStatus;
-    }), [date, department, employeeQuery, statusFilter]);
+    }), [records, date, department, employeeQuery, statusFilter]);
 
   const counts = useMemo(() => ({
     present: filtered.filter(r => r.status === "Present").length,
@@ -134,8 +223,48 @@ export default function AttendancePage() {
     absent:  filtered.filter(r => r.status === "Absent").length,
   }), [filtered]);
 
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+      showToast("Attendance logs synced with scanner gates", "success");
+    }, 600);
+  };
+
+  const handleExportCSV = () => {
+    if (filtered.length === 0) {
+      showToast("No records match the current filter to export", "warning");
+      return;
+    }
+    const filename = `DVLA-NSS-Attendance-Logs-${date}.csv`;
+    const headers = ["Record ID", "NSS ID", "Personnel Name", "Department", "Date", "Check-in Time", "Status", "IP Address", "Device"];
+    const rows = filtered.map(r => [
+      r.id,
+      r.employeeId,
+      r.name,
+      r.department,
+      r.date,
+      r.checkIn,
+      r.status,
+      r.ip,
+      r.device,
+    ]);
+
+    downloadCSV(filename, headers, rows);
+    showToast(`Exported ${filtered.length} attendance records to ${filename}`, "success");
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .spin-icon {
+          animation: spin 0.8s linear infinite;
+        }
+      `}</style>
 
       {/* ── Page Header ── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
@@ -158,15 +287,41 @@ export default function AttendancePage() {
         </div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button style={{
-            display: "flex", alignItems: "center", gap: 7,
-            padding: "9px 14px", borderRadius: 9, cursor: "pointer",
-            border: `1px solid ${C.border}`, background: "#fff",
-            color: C.primaryDark, fontSize: 12, fontWeight: 600,
-          }}>
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "9px 14px", borderRadius: 9, cursor: isRefreshing ? "default" : "pointer",
+              border: `1px solid ${C.border}`, background: "#fff",
+              color: C.primaryDark, fontSize: 12, fontWeight: 600,
+              opacity: isRefreshing ? 0.75 : 1,
+            }}
+          >
+            <RefreshCw size={13} className={isRefreshing ? "spin-icon" : ""} />
+            {isRefreshing ? "Syncing..." : "Refresh"}
+          </button>
+          <button
+            onClick={handleExportCSV}
+            style={{
+              display: "flex", alignItems: "center", gap: 7,
+              padding: "9px 14px", borderRadius: 9, cursor: "pointer",
+              border: `1px solid ${C.border}`, background: "#fff",
+              color: C.primaryDark, fontSize: 12, fontWeight: 600,
+              transition: "border-color 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C.primary; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C.border; }}
+          >
             <Download size={13} /> Export CSV
           </button>
-          <button style={{
+          <button
+            onClick={() => {
+              const target = filtered[0] || records[0];
+              if (target) setEditRecord(target);
+              else showToast("No records available to override", "warning");
+            }}
+            style={{
             display: "flex", alignItems: "center", gap: 7,
             padding: "9px 14px", borderRadius: 9, cursor: "pointer",
             border: "none", background: C.primary,
@@ -253,7 +408,7 @@ export default function AttendancePage() {
           </FilterField>
 
           {/* Search */}
-          <FilterField label="Employee">
+          <FilterField label="Personnel">
             <div style={{ position: "relative" }}>
               <Search size={13} color={C.outerGreen} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
               <input
@@ -275,7 +430,7 @@ export default function AttendancePage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
-                {["Employee", "Department", "Date", "Check-In", "Status", "IP Address", "Device", "Actions"].map(h => (
+                {["Personnel", "Department", "Date", "Check-In", "Status", "IP Address", "Device", "Actions"].map(h => (
                   <th key={h} style={{
                     padding: "10px 14px", textAlign: "left",
                     fontSize: 10, fontWeight: 700, letterSpacing: "0.10em",
@@ -378,7 +533,9 @@ export default function AttendancePage() {
                     {/* Actions */}
                     <td style={{ padding: "12px 14px" }}>
                       <div style={{ display: "flex", gap: 6 }}>
-                        <button style={{
+                        <button
+                          onClick={() => setEditRecord(row)}
+                          style={{
                           display: "flex", alignItems: "center", gap: 4,
                           padding: "5px 10px", borderRadius: 7, cursor: "pointer",
                           border: `1px solid ${C.border}`, background: "#fff",
@@ -387,7 +544,12 @@ export default function AttendancePage() {
                         }}>
                           <Pencil size={11} /> Edit
                         </button>
-                        <button style={{
+                        <button
+                          onClick={() => {
+                            setRecords(prev => prev.filter(r => r.id !== row.id));
+                            showToast(`Deleted attendance record for ${row.name}`, "info");
+                          }}
+                          style={{
                           display: "flex", alignItems: "center", gap: 4,
                           padding: "5px 10px", borderRadius: 7, cursor: "pointer",
                           border: `1px solid rgba(220,38,38,0.2)`, background: "#fef2f2",
@@ -413,10 +575,21 @@ export default function AttendancePage() {
         }}>
           <Clock size={12} color={C.outerGreen} />
           <span style={{ fontSize: 11, color: C.outerGreen }}>
-            Future: add <strong>check-out</strong> column to compute total hours per employee with minimum on-site rules.
+            Future: add <strong>check-out</strong> column to compute total hours per personnel with minimum on-site rules.
           </span>
         </div>
       </div>
+
+      {editRecord && (
+        <EditAttendanceModal
+          record={editRecord}
+          onClose={() => setEditRecord(null)}
+          onSave={updated => {
+            setRecords(prev => prev.map(r => r.id === updated.id ? updated : r));
+            showToast(`Updated attendance for ${updated.name} (${updated.employeeId}) to ${updated.status}`, "success");
+          }}
+        />
+      )}
     </div>
   );
 }

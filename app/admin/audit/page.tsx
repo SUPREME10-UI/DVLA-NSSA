@@ -6,6 +6,8 @@ import {
   Filter, Wifi, Info, Clock, User, Settings, CalendarDays,
   CheckCircle2, XCircle, ChevronDown, Eye, X,
 } from "lucide-react";
+import { downloadCSV } from "../../utils/export";
+import { useToast } from "../../components/Toast";
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const C = {
@@ -36,12 +38,12 @@ type AuditLog = {
 const LOGS: AuditLog[] = [
   { id:"AUD-1001", time:"2026-02-19 09:02", actor:"Admin",    action:"Updated attendance cut-off to 09:00",      type:"Settings",   level:"Info",     ip:"10.0.2.14",     status:"Success", detail:"Cut-off time changed from 08:45 to 09:00. Effective immediately for all departments." },
   { id:"AUD-1002", time:"2026-02-19 08:45", actor:"System",   action:"Scanner device offline detected",          type:"Data",       level:"Warning",  ip:"10.0.3.21",     status:"Success", detail:"Device ID: SCAN-07 went offline. Last successful scan at 08:42. Auto-alert sent to IT." },
-  { id:"AUD-1003", time:"2026-02-19 08:31", actor:"Admin",    action:"Exported daily attendance report",         type:"Attendance", level:"Info",     ip:"10.0.2.14",     status:"Success", detail:"PDF report exported for 2026-02-18. Included 6 employees, 4 present, 1 late, 1 absent." },
+  { id:"AUD-1003", time:"2026-02-19 08:31", actor:"Admin",    action:"Exported daily attendance report",         type:"Attendance", level:"Info",     ip:"10.0.2.14",     status:"Success", detail:"PDF report exported for 2026-02-18. Included 6 NSS Personnel, 4 present, 1 late, 1 absent." },
   { id:"AUD-1004", time:"2026-02-18 17:52", actor:"Security", action:"Blocked login from untrusted IP",          type:"Auth",       level:"Critical", ip:"197.251.12.44", status:"Blocked", detail:"3 consecutive failed login attempts detected from 197.251.12.44. Account temporarily locked." },
-  { id:"AUD-1005", time:"2026-02-18 15:18", actor:"Admin",    action:"Deleted inactive employee record",         type:"Data",       level:"Warning",  ip:"10.0.2.14",     status:"Success", detail:"Employee EMP-039 (James Owusu) permanently removed after 90-day inactivity period." },
-  { id:"AUD-1006", time:"2026-02-18 09:07", actor:"System",   action:"Auto-generated late arrival summary",      type:"Attendance", level:"Info",     ip:"10.0.2.9",      status:"Success", detail:"Daily summary generated. 2 employees flagged as late: Sarah Malik (09:17), Esi Boateng (09:03)." },
-  { id:"AUD-1007", time:"2026-02-17 14:22", actor:"Admin",    action:"Regenerated QR token for EMP-014",        type:"Settings",   level:"Warning",  ip:"10.0.2.14",     status:"Success", detail:"QR token regenerated for Sarah Malik (EMP-014). Previous token revoked immediately." },
-  { id:"AUD-1008", time:"2026-02-17 11:04", actor:"System",   action:"New employee QR code issued",             type:"Data",       level:"Info",     ip:"10.0.2.9",      status:"Success", detail:"QR code generated for EMP-047 (Kofi Mensah). Token type: Encrypted. Expiry: 90 days." },
+  { id:"AUD-1005", time:"2026-02-18 15:18", actor:"Admin",    action:"Deleted inactive personnel record",        type:"Data",       level:"Warning",  ip:"10.0.2.14",     status:"Success", detail:"Personnel NSS-039 (James Owusu) permanently removed after 90-day inactivity period." },
+  { id:"AUD-1006", time:"2026-02-18 09:07", actor:"System",   action:"Auto-generated late arrival summary",      type:"Attendance", level:"Info",     ip:"10.0.2.9",      status:"Success", detail:"Daily summary generated. 2 NSS Personnel flagged as late: Sarah Malik (09:17), Esi Boateng (09:03)." },
+  { id:"AUD-1007", time:"2026-02-17 14:22", actor:"Admin",    action:"Regenerated QR token for NSS-014",        type:"Settings",   level:"Warning",  ip:"10.0.2.14",     status:"Success", detail:"QR token regenerated for Sarah Malik (NSS-014). Previous token revoked immediately." },
+  { id:"AUD-1008", time:"2026-02-17 11:04", actor:"System",   action:"New personnel QR code issued",            type:"Data",       level:"Info",     ip:"10.0.2.9",      status:"Success", detail:"QR code generated for NSS-047 (Kofi Mensah). Token type: Encrypted. Expiry: 90 days." },
 ];
 
 // ─── Config maps ──────────────────────────────────────────────────────────────
@@ -137,32 +139,72 @@ function Pill({ count, label, bg, color, icon:Icon }: { count:number; label:stri
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AuditLogsPage() {
+  const { showToast } = useToast();
   const [query, setQuery]           = useState("");
   const [typeFilter, setTypeFilter] = useState<AuditType | "All">("All");
   const [levelFilter, setLevelFilter] = useState<AuditLevel | "All">("All");
   const [detail, setDetail]         = useState<AuditLog | null>(null);
+  const [logs, setLogs]             = useState<AuditLog[]>(LOGS);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return LOGS.filter(log =>
+    return logs.filter(log =>
       (!q || log.action.toLowerCase().includes(q) || log.actor.toLowerCase().includes(q) || log.id.toLowerCase().includes(q)) &&
       (typeFilter === "All"  || log.type  === typeFilter) &&
       (levelFilter === "All" || log.level === levelFilter)
     );
-  }, [query, typeFilter, levelFilter]);
+  }, [logs, query, typeFilter, levelFilter]);
 
   const counts = useMemo(() => ({
-    critical: LOGS.filter(l=>l.level==="Critical").length,
-    warning:  LOGS.filter(l=>l.level==="Warning").length,
-    blocked:  LOGS.filter(l=>l.status==="Blocked").length,
-  }), []);
+    critical: logs.filter(l=>l.level==="Critical").length,
+    warning:  logs.filter(l=>l.level==="Warning").length,
+    blocked:  logs.filter(l=>l.status==="Blocked").length,
+  }), [logs]);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+      showToast("Audit logs synchronized and verified", "success");
+    }, 600);
+  };
+
+  const handleExportCSV = () => {
+    if (filtered.length === 0) {
+      showToast("No audit logs match current filters", "warning");
+      return;
+    }
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `DVLA-Audit-Logs-${dateStr}.csv`;
+    const headers = ["Log ID", "Timestamp", "Actor", "Action", "Type", "Level", "IP Address", "Status", "Detail"];
+    const rows = filtered.map(l => [
+      l.id,
+      l.time,
+      l.actor,
+      l.action,
+      l.type,
+      l.level,
+      l.ip,
+      l.status,
+      l.detail || "",
+    ]);
+
+    downloadCSV(filename, headers, rows);
+    showToast(`Exported ${filtered.length} audit logs to ${filename}`, "success");
+  };
 
   const inp: React.CSSProperties = { padding:"8px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,background:"#fff",fontSize:12,color:C.primaryDark,fontFamily:"inherit",outline:"none" };
   const lbl10: React.CSSProperties = { fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase",color:C.outerGreen,display:"block",marginBottom:5 };
 
   return (
     <>
-      <style>{`@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} } .aud-row:hover td { background:${C.surface} !important; }`}</style>
+      <style>{`
+        @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+        .aud-row:hover td { background:${C.surface} !important; }
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        .spin-icon { animation: spin 0.8s linear infinite; }
+      `}</style>
 
       {detail && <DetailModal log={detail} onClose={()=>setDetail(null)}/>}
 
@@ -180,10 +222,28 @@ export default function AuditLogsPage() {
             <p style={{ fontSize:12,color:C.outerGreen,margin:0 }}>Track sensitive actions, authentication events, and data changes across the system.</p>
           </div>
           <div style={{ display:"flex",gap:9 }}>
-            <button style={{ display:"flex",alignItems:"center",gap:7,padding:"9px 15px",borderRadius:9,cursor:"pointer",border:`1px solid ${C.border}`,background:"#fff",color:C.primaryDark,fontSize:12,fontWeight:600 }}>
-              <RefreshCw size={13}/> Refresh
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              style={{
+                display:"flex",alignItems:"center",gap:7,padding:"9px 15px",borderRadius:9,cursor:isRefreshing ? "default" : "pointer",
+                border:`1px solid ${C.border}`,background:"#fff",color:C.primaryDark,fontSize:12,fontWeight:600,
+                opacity: isRefreshing ? 0.75 : 1,
+              }}
+            >
+              <RefreshCw size={13} className={isRefreshing ? "spin-icon" : ""}/>
+              {isRefreshing ? "Refreshing..." : "Refresh"}
             </button>
-            <button style={{ display:"flex",alignItems:"center",gap:7,padding:"9px 15px",borderRadius:9,cursor:"pointer",border:"none",background:C.primary,color:"#fff",fontSize:12,fontWeight:700 }}>
+            <button
+              onClick={handleExportCSV}
+              style={{
+                display:"flex",alignItems:"center",gap:7,padding:"9px 15px",borderRadius:9,cursor:"pointer",
+                border:"none",background:C.primary,color:"#fff",fontSize:12,fontWeight:700,
+                transition:"opacity 0.15s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.9"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+            >
               <Download size={13}/> Export CSV
             </button>
           </div>

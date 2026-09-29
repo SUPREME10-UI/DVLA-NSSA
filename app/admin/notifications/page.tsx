@@ -34,10 +34,10 @@ const LEVEL_CFG = {
 };
 
 const RECENT: NotificationItem[] = [
-  { id:"NT-1001", title:"Late arrivals detected",    desc:"5 employees checked in after 09:00.",         time:"09:18",    level:"Warning"  },
+  { id:"NT-1001", title:"Late arrivals detected",    desc:"5 NSS Personnel checked in after 09:00.",     time:"09:18",    level:"Warning"  },
   { id:"NT-1002", title:"Daily summary ready",        desc:"Attendance summary generated for today.",     time:"08:02",    level:"Info"     },
   { id:"NT-1003", title:"Untrusted IP blocked",       desc:"Access attempt from 197.251.12.44.",          time:"Yesterday",level:"Critical" },
-  { id:"NT-1004", title:"QR token regenerated",       desc:"Token for EMP-014 was revoked and reissued.", time:"Yesterday",level:"Warning"  },
+  { id:"NT-1004", title:"QR token regenerated",       desc:"Token for NSS-014 was revoked and reissued.", time:"Yesterday",level:"Warning"  },
   { id:"NT-1005", title:"Scanner device offline",     desc:"SCAN-07 went offline at 08:42.",              time:"2 days ago",level:"Warning" },
 ];
 
@@ -211,9 +211,9 @@ export default function NotificationsPage() {
               <AlertRow label="Late arrival alerts"       sublabel="Triggered when check-in is past the cut-off"    enabled={lateOn}    onToggle={()=>setLateOn(v=>!v)}/>
               <AlertRow label="Scanner offline alerts"    sublabel="Triggered when a scanner device goes offline"   enabled={offlineOn} onToggle={()=>setOfflineOn(v=>!v)}/>
               <AlertRow label="Critical audit events"     sublabel="Blocked logins, untrusted IPs, data breaches"   enabled={auditOn}   onToggle={()=>setAuditOn(v=>!v)}/>
-              <AlertRow label="QR token changes"          sublabel="Regenerated or revoked employee QR tokens"      enabled={qrOn}      onToggle={()=>setQrOn(v=>!v)}/>
+              <AlertRow label="QR token changes"          sublabel="Regenerated or revoked personnel QR tokens"       enabled={qrOn}      onToggle={()=>setQrOn(v=>!v)}/>
               <div style={{ paddingTop:12 }}>
-                <AlertRow label="Absent employee alerts"  sublabel="Daily digest of employees with no check-in"     enabled={absentOn}  onToggle={()=>setAbsentOn(v=>!v)}/>
+                <AlertRow label="Absent personnel alerts" sublabel="Daily digest of NSS Personnel with no check-in" enabled={absentOn}  onToggle={()=>setAbsentOn(v=>!v)}/>
               </div>
             </div>
           </Card>

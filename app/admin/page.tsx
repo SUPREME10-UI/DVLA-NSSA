@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { downloadCSV } from "../utils/export";
+import { useToast } from "../components/Toast";
 import {
   Users,
   UserCheck,
@@ -49,12 +52,12 @@ const C = {
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 const mockToday: AttendanceRecord[] = [
-  { id: 1, employeeId: "EMP-001", name: "John Doe",      department: "Operations", checkIn: "08:58", status: "Present", avatar: "JD" },
-  { id: 2, employeeId: "EMP-014", name: "Sarah Malik",   department: "HR",         checkIn: "09:17", status: "Late",    avatar: "SM" },
-  { id: 3, employeeId: "EMP-033", name: "Michael Chen",  department: "IT",         checkIn: "08:46", status: "Present", avatar: "MC" },
-  { id: 4, employeeId: "EMP-022", name: "Amina Yusuf",   department: "Finance",    checkIn: "—",     status: "Absent",  avatar: "AY" },
-  { id: 5, employeeId: "EMP-047", name: "Kofi Mensah",   department: "Operations", checkIn: "08:55", status: "Present", avatar: "KM" },
-  { id: 6, employeeId: "EMP-058", name: "Esi Boateng",   department: "IT",         checkIn: "09:03", status: "Late",    avatar: "EB" },
+  { id: 1, employeeId: "NSS-001", name: "John Doe",      department: "Operations", checkIn: "08:58", status: "Present", avatar: "JD" },
+  { id: 2, employeeId: "NSS-014", name: "Sarah Malik",   department: "HR",         checkIn: "09:17", status: "Late",    avatar: "SM" },
+  { id: 3, employeeId: "NSS-033", name: "Michael Chen",  department: "IT",         checkIn: "08:46", status: "Present", avatar: "MC" },
+  { id: 4, employeeId: "NSS-022", name: "Amina Yusuf",   department: "Finance",    checkIn: "—",     status: "Absent",  avatar: "AY" },
+  { id: 5, employeeId: "NSS-047", name: "Kofi Mensah",   department: "Operations", checkIn: "08:55", status: "Present", avatar: "KM" },
+  { id: 6, employeeId: "NSS-058", name: "Esi Boateng",   department: "IT",         checkIn: "09:03", status: "Late",    avatar: "EB" },
 ];
 
 const TOTAL = 42;
@@ -166,27 +169,60 @@ function SecurityRow({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminDashboardPage() {
+  const { showToast } = useToast();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<AttendanceStatus | "All">("All");
+  const [records, setRecords] = useState<AttendanceRecord[]>(mockToday);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+
 
   const { present, late, absent } = useMemo(() => {
-    const present = mockToday.filter(r => r.status === "Present").length;
-    const late    = mockToday.filter(r => r.status === "Late").length;
+    const present = records.filter(r => r.status === "Present").length;
+    const late    = records.filter(r => r.status === "Late").length;
     const absent  = TOTAL - present - late;
     return { present, late, absent };
-  }, []);
+  }, [records]);
 
   const filtered = useMemo(() =>
-    mockToday.filter(r => {
+    records.filter(r => {
       const matchSearch = r.name.toLowerCase().includes(search.toLowerCase()) ||
         r.employeeId.toLowerCase().includes(search.toLowerCase()) ||
         r.department.toLowerCase().includes(search.toLowerCase());
       const matchStatus = filterStatus === "All" || r.status === filterStatus;
       return matchSearch && matchStatus;
-    }), [search, filterStatus]);
+    }), [records, search, filterStatus]);
 
   const maxWeekly = Math.max(...weeklyData.map(d => d.count));
   const attendancePct = Math.round((present / TOTAL) * 100);
+
+  const handleRefresh = () => {
+    setIsRefreshing(true);
+    setTimeout(() => {
+      setIsRefreshing(false);
+      setLastUpdated(new Date());
+      showToast("Attendance snapshot and live feed updated", "success");
+    }, 600);
+  };
+
+  const handleExport = () => {
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `DVLA-NSS-Attendance-${dateStr}.csv`;
+    const headers = ["ID", "NSS ID", "Full Name", "Department", "Check-in Time", "Status", "Report Date"];
+    const rows = filtered.map(r => [
+      r.id,
+      r.employeeId,
+      r.name,
+      r.department,
+      r.checkIn,
+      r.status,
+      dateStr,
+    ]);
+
+    downloadCSV(filename, headers, rows);
+    showToast(`Exported ${filtered.length} NSS Personnel records to ${filename}`, "success");
+  };
 
   return (
     <div style={{
@@ -197,6 +233,15 @@ export default function AdminDashboardPage() {
       maxWidth: 1140,
       margin: "0 auto",
     }}>
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .spin-icon {
+          animation: spin 0.8s linear infinite;
+        }
+      `}</style>
 
       {/* ── Header ── */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
@@ -215,35 +260,47 @@ export default function AdminDashboardPage() {
             Attendance Overview
           </h1>
           <p style={{ fontSize: 13, color: C.outerGreen, marginTop: 6, fontWeight: 400 }}>
-            Live snapshot · {new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            Live snapshot · {lastUpdated.toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} · {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
           </p>
         </div>
 
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "9px 14px", borderRadius: 10, border: `1px solid ${C.surface2}`,
-            background: "#fff", color: C.primaryDark, fontSize: 12, fontWeight: 600, cursor: "pointer",
-          }}>
+          <button
+            onClick={handleExport}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "9px 14px", borderRadius: 10, border: `1px solid ${C.surface2}`,
+              background: "#fff", color: C.primaryDark, fontSize: 12, fontWeight: 600, cursor: "pointer",
+              transition: "background 0.15s, border-color 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C.primary; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C.surface2; }}
+          >
             <Download size={14} /> Export
           </button>
-          <button style={{
-            display: "flex", alignItems: "center", gap: 6,
-            padding: "9px 14px", borderRadius: 10, border: "none",
-            background: C.primary, color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer",
-            boxShadow: "none",
-          }}>
-            <RefreshCw size={14} /> Refresh
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "9px 14px", borderRadius: 10, border: "none",
+              background: C.primary, color: "#fff", fontSize: 12, fontWeight: 600, cursor: isRefreshing ? "default" : "pointer",
+              boxShadow: "none",
+              opacity: isRefreshing ? 0.75 : 1,
+            }}
+          >
+            <RefreshCw size={14} className={isRefreshing ? "spin-icon" : ""} />
+            {isRefreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
       </div>
 
       {/* ── Stat Cards ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-        <StatCard label="Total Employees" value={TOTAL}   sub="All departments"          icon={Users}      />
-        <StatCard label="Present Today"   value={present} sub={`${attendancePct}% on time`} icon={UserCheck} accent />
-        <StatCard label="Late Arrivals"   value={late}    sub="Cut-off: 09:00"            icon={Clock}      />
-        <StatCard label="Absent Today"    value={absent}  sub="Includes no-scan"          icon={UserX}      highlight />
+        <StatCard label="Total Personnel"  value={TOTAL}   sub="All departments"          icon={Users}      />
+        <StatCard label="Present Today"    value={present} sub={`${attendancePct}% on time`} icon={UserCheck} accent />
+        <StatCard label="Late Arrivals"    value={late}    sub="Cut-off: 09:00"            icon={Clock}      />
+        <StatCard label="Absent Today"     value={absent}  sub="Includes no-scan"          icon={UserX}      highlight />
       </div>
 
       {/* ── Attendance Rate Banner ── */}
@@ -265,7 +322,7 @@ export default function AdminDashboardPage() {
               Today&#39;s Attendance Rate
             </div>
             <div style={{ color: C.primaryDark, fontSize: 18, fontWeight: 700, letterSpacing: "-0.02em" }}>
-              {attendancePct}% — {present + late} of {TOTAL} employees checked in
+              {attendancePct}% — {present + late} of {TOTAL} NSS Personnel checked in
             </div>
           </div>
         </div>
@@ -291,7 +348,7 @@ export default function AdminDashboardPage() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
             <div>
               <h2 style={{ fontSize: 14, fontWeight: 700, color: C.primaryDark, margin: 0 }}>Weekly Attendance</h2>
-              <p style={{ fontSize: 11, color: C.outerGreen, margin: "3px 0 0" }}>Employees present per working day</p>
+              <p style={{ fontSize: 11, color: C.outerGreen, margin: "3px 0 0" }}>NSS Personnel present per working day</p>
             </div>
             <span style={{
               fontSize: 10, padding: "3px 10px", borderRadius: 100,
@@ -351,8 +408,8 @@ export default function AdminDashboardPage() {
         {/* Table Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h2 style={{ fontSize: 14, fontWeight: 700, color: C.primaryDark, margin: 0 }}>Recent Check-ins</h2>
-            <p style={{ fontSize: 11, color: C.outerGreen, margin: "3px 0 0" }}>Live feed from scan endpoint</p>
+            <h2 style={{ fontSize: 14, fontWeight: 700, color: C.primaryDark, margin: 0 }}>Recent NSS Check-ins</h2>
+              <p style={{ fontSize: 11, color: C.outerGreen, margin: "3px 0 0" }}>Live feed from scan endpoint</p>
           </div>
 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -366,7 +423,7 @@ export default function AdminDashboardPage() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search employee…"
+                placeholder="Search NSS Personnel…"
                 style={{
                   border: "none", background: "none", outline: "none",
                   fontSize: 12, color: C.primaryDark, width: 160,
@@ -401,7 +458,7 @@ export default function AdminDashboardPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
               <tr style={{ borderBottom: `2px solid ${C.surface2}` }}>
-                {["Employee", "Department", "Check-In", "Status", "Source IP"].map(h => (
+                {["Personnel", "Department", "Check-In", "Status", "Source IP"].map(h => (
                   <th key={h} style={{
                     padding: "8px 12px", textAlign: "left",
                     fontSize: 10, fontWeight: 700, letterSpacing: "0.10em",
@@ -488,11 +545,14 @@ export default function AdminDashboardPage() {
           <span style={{ fontSize: 11, color: C.outerGreen }}>
             Showing {filtered.length} of {mockToday.length} records
           </span>
-          <button style={{
-            display: "flex", alignItems: "center", gap: 4, background: "none",
-            border: "none", color: C.primary, fontSize: 12, fontWeight: 600, cursor: "pointer",
-          }}>
-            View all employees <ChevronRight size={13} />
+          <button
+            onClick={() => router.push("/admin/employees")}
+            style={{
+              display: "flex", alignItems: "center", gap: 4, background: "none",
+              border: "none", color: C.primary, fontSize: 12, fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            View all NSS Personnel <ChevronRight size={13} />
           </button>
         </div>
       </div>

@@ -8,6 +8,7 @@ import {
   Mail, Smartphone, Download, RefreshCw,
   ShieldCheck, Info, X,
 } from "lucide-react";
+import { downloadCSV } from "../../utils/export";
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
 const C = {
@@ -141,6 +142,46 @@ export default function SettingsPage() {
     setTimeout(()=>setSaved(false), 2500);
   };
 
+  const handleExportBackup = () => {
+    const backupData = {
+      organization: { orgName, timezone, dateFormat },
+      attendance: { workStart, workEnd, cutoff, lateWindow, weekends },
+      security: { twoFactor, ipLock, sessionExp },
+      qr: { tokenExpiry, autoRegen, qrStrategy },
+      notifications: { emailOn, smsOn, pushOn, alertEmail, digest },
+      storage: { retention, backupFreq, backupTime, exportFormat },
+      timestamp: new Date().toISOString(),
+      version: "1.0.0"
+    };
+
+    if (exportFormat === "json") {
+      const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `DVLA-System-Backup-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else {
+      const headers = ["Setting Category", "Parameter", "Configured Value"];
+      const rows = [
+        ["Organization", "Organization Name", orgName],
+        ["Organization", "Timezone", timezone],
+        ["Organization", "Date Format", dateFormat],
+        ["Attendance", "Work Hours Start", workStart],
+        ["Attendance", "Work Hours End", workEnd],
+        ["Attendance", "Cut-off Time", cutoff],
+        ["Attendance", "Late Window (mins)", lateWindow],
+        ["Security", "Two-Factor Auth", twoFactor ? "Enabled" : "Disabled"],
+        ["Security", "IP Locking", ipLock ? "Enabled" : "Disabled"],
+        ["QR System", "Token Expiry (days)", tokenExpiry],
+        ["Data & Storage", "Retention Period (days)", retention],
+      ];
+      downloadCSV(`DVLA-System-Backup-${new Date().toISOString().slice(0, 10)}.csv`, headers, rows);
+    }
+    notify("System backup exported successfully.", "success");
+  };
+
   const TIMEZONES = ["Africa/Accra","Europe/London","America/New_York","Europe/Paris","Asia/Dubai","Asia/Singapore"];
 
   return (
@@ -156,7 +197,7 @@ export default function SettingsPage() {
             </div>
             <div style={{ fontWeight:800,fontSize:15,color:C.primaryDark,marginBottom:8 }}>Reset All Data?</div>
             <div style={{ fontSize:12,color:C.outerGreen,marginBottom:24,lineHeight:1.7 }}>
-              This will <strong style={{ color:C.red }}>permanently delete</strong> all employees, attendance records, QR tokens, and audit logs. This cannot be undone.
+              This will <strong style={{ color:C.red }}>permanently delete</strong> all NSS Personnel, attendance records, QR tokens, and audit logs. This cannot be undone.
             </div>
             <div style={{ display:"flex",gap:10 }}>
               <button onClick={()=>setShowReset(false)} style={{ flex:1,padding:"10px",borderRadius:10,border:`1px solid ${C.border}`,background:"#fff",color:C.primaryDark,fontSize:12,fontWeight:600,cursor:"pointer" }}>Cancel</button>
@@ -180,7 +221,7 @@ export default function SettingsPage() {
             <p style={{ fontSize:12,color:C.outerGreen,margin:0 }}>Configure your organisation, attendance rules, security, QR, notifications, and data preferences.</p>
           </div>
           <div style={{ display:"flex",gap:9 }}>
-            <button onClick={()=>notify("Backup export queued")} style={{ display:"flex",alignItems:"center",gap:7,padding:"9px 15px",borderRadius:9,cursor:"pointer",border:`1px solid ${C.border}`,background:"#fff",color:C.primaryDark,fontSize:12,fontWeight:600 }}>
+            <button onClick={handleExportBackup} style={{ display:"flex",alignItems:"center",gap:7,padding:"9px 15px",borderRadius:9,cursor:"pointer",border:`1px solid ${C.border}`,background:"#fff",color:C.primaryDark,fontSize:12,fontWeight:600 }}>
               <Download size={13}/> Export Backup
             </button>
             <button
@@ -406,8 +447,8 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div style={{ display:"flex",gap:9 }}>
-                <GhostBtn icon={Download} onClick={()=>notify("Backup export queued")}>Download Backup</GhostBtn>
-                <GhostBtn icon={RefreshCw} onClick={()=>notify("Devices synced")}>Sync Devices</GhostBtn>
+                <GhostBtn icon={Download} onClick={handleExportBackup}>Download Backup</GhostBtn>
+                <GhostBtn icon={RefreshCw} onClick={()=>notify("Devices synced and online.", "success")}>Sync Devices</GhostBtn>
               </div>
             </div>
           </SectionCard>
@@ -423,7 +464,7 @@ export default function SettingsPage() {
           <div style={{ padding:"18px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:16,flexWrap:"wrap" }}>
             <div>
               <div style={{ fontSize:13,fontWeight:600,color:C.primaryDark }}>Reset all application data</div>
-              <div style={{ fontSize:11,color:C.outerGreen,marginTop:3 }}>Permanently deletes all employees, attendance records, QR tokens, and audit logs.</div>
+              <div style={{ fontSize:11,color:C.outerGreen,marginTop:3 }}>Permanently deletes all NSS Personnel, attendance records, QR tokens, and audit logs.</div>
             </div>
             <button onClick={()=>setShowReset(true)} style={{ display:"flex",alignItems:"center",gap:7,padding:"9px 16px",borderRadius:9,border:`1.5px solid rgba(220,38,38,0.3)`,background:"#fef2f2",color:C.red,fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap" }}>
               <Trash2 size={13}/> Reset Data

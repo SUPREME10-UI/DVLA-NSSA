@@ -5,16 +5,16 @@ export default function QrScannerPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8">
       <div className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-8">
         <div className="mb-4 text-xs font-medium uppercase tracking-wide text-slate-500">
-          Employee Check-in
+          NSS Personnel Check-in
         </div>
         <h1 className="text-xl font-semibold tracking-tight text-slate-900 md:text-2xl">
-          Scan your company QR tag
+          Scan your DVLA NSS QR tag
         </h1>
         <p className="mt-1 text-sm text-slate-500">
-          Each employee has a printed ID tag with their personal QR code. When
-          they arrive at work and connect to the company WiFi, they scan that
+          Each NSS Personnel has a printed ID tag with their personal QR code. When
+          they arrive at DVLA and connect to the office network, they scan that
           tag here to record their attendance. Admins do not scan codes—this
-          page is for employees only.
+          page is for NSS Personnel only.
         </p>
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
@@ -24,7 +24,7 @@ export default function QrScannerPage() {
             </div>
             <p className="max-w-xs text-[11px] text-center text-slate-500">
               In your final system, this area should show a live camera preview
-              from the employee&apos;s device. When the tag QR is in view, your
+              from the personnel&apos;s device. When the tag QR is in view, your
               frontend QR library will decode the token and send it to your
               backend. This page only provides the UI layout.
             </p>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { ToastProvider } from "../components/Toast";
 import {
   LayoutDashboard,
   Users,
@@ -38,7 +39,7 @@ const C = {
 // ─── Nav config ───────────────────────────────────────────────────────────────
 const navItems = [
   { href: "/admin",            label: "Dashboard",  icon: LayoutDashboard },
-  { href: "/admin/employees",  label: "Employees",  icon: Users },
+  { href: "/admin/employees",  label: "NSS Personnel",  icon: Users },
   { href: "/admin/qr",         label: "QR Codes",   icon: QrCode },
   { href: "/admin/attendance", label: "Attendance", icon: CalendarCheck },
   { href: "/admin/reports",    label: "Reports",    icon: BarChart3 },
@@ -67,7 +68,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <div style={{ minHeight: "100vh", background: C.surface, fontFamily: "'DM Sans', sans-serif" }}>
+    <ToastProvider>
+      <div style={{ minHeight: "100vh", background: C.surface, fontFamily: "'DM Sans', sans-serif" }}>
       <div style={{ display: "flex", height: "100vh", maxHeight: "100vh", overflow: "hidden" }}>
 
         {/* ── Sidebar ── */}
@@ -102,7 +104,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 }}
               >
                 <Image
-                  src="https://www.dvla.gov.gh/images/new_logo.png"
+                  src="/dvla-logo.png"
                   alt="DVLA Ghana logo"
                   width={40}
                   height={40}
@@ -368,8 +370,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               {children}
             </div>
           </main>
+          </div>
         </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }

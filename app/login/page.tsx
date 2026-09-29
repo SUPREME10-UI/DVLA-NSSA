@@ -153,12 +153,11 @@ export default function LoginPage() {
         .logo-wrap {
           width: 44px; height: 44px;
           border-radius: 10px;
-          background: #fff;
-          border: 1px solid #e0dbd3;
+          background: transparent;
+          border: none;
           display: flex; align-items: center; justify-content: center;
           overflow: hidden;
           flex-shrink: 0;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.07);
         }
         .logo-text { display: flex; flex-direction: column; gap: 1px; }
         .logo-eyebrow {
@@ -283,7 +282,7 @@ export default function LoginPage() {
           <div className="image-card">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="https://www.dvla.gov.gh/public/galleries/1746797570_5C7A7665%20(1).jpg"
+            src="/dvla-event.jpg"
             alt="DVLA Ghana operations"
             className="image-card-img"
           />
@@ -330,10 +329,10 @@ export default function LoginPage() {
           <div className="logo-row">
             <div className="logo-wrap">
               <Image
-                src="https://www.dvla.gov.gh/images/new_logo.png"
+                src="/dvla-logo.png"
                 alt="DVLA Ghana"
-                width={36}
-                height={36}
+                width={44}
+                height={44}
                 style={{ objectFit: "contain" }}
                 priority
               />

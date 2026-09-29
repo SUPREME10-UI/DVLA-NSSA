@@ -32,8 +32,8 @@ const MODES = [
     badgeBg:    C.surface2,
     badgeColor: C.outerGreen,
     points: [
-      "Generate a random, non-guessable UUID stored alongside the employee record.",
-      "On each scan, the UUID is looked up in your database to retrieve the employee.",
+      "Generate a random, non-guessable UUID stored alongside the personnel record.",
+      "On each scan, the UUID is looked up in your database to retrieve the personnel.",
       "Ideal when scans happen only on your internal network with trusted devices.",
     ],
     code: "550e8400-e29b-41d4-a716-446655440000",
@@ -47,7 +47,7 @@ const MODES = [
     badgeBg:    "#ecfdf5",
     badgeColor: "#16a34a",
     points: [
-      "Encrypt employeeId + expiry + nonce with a secret key on your backend.",
+      "Encrypt personnelId + expiry + nonce with a secret key on your backend.",
       "QR contains only the encrypted blob — decrypt and validate expiry on each scan.",
       "Strong protection against token sharing when combined with short expiry and IP checks.",
     ],
@@ -62,7 +62,7 @@ const MODES = [
     badgeBg:    "#fffbeb",
     badgeColor: "#d97706",
     points: [
-      "Sign a payload with employeeId, iat, and exp using HMAC-SHA256 or RS256.",
+      "Sign a payload with personnelId, iat, and exp using HMAC-SHA256 or RS256.",
       "Scanner validates the signature and expiry without a database round-trip.",
       "Good balance of performance and security — no personal data is exposed.",
     ],
@@ -102,7 +102,7 @@ function FakeQR({ color }: { color: string }) {
   ];
   const cell = 8, size = pattern.length * cell;
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg id="qr-preview-svg" width={size} height={size} viewBox={`0 0 ${size} ${size}`} xmlns="http://www.w3.org/2000/svg">
       {pattern.map((row, r) => row.map((bit, c) =>
         bit ? <rect key={`${r}-${c}`} x={c*cell} y={r*cell} width={cell} height={cell} fill={color} rx={1.5} /> : null
       ))}
@@ -152,6 +152,90 @@ export default function QrManagementPage() {
     setTimeout(() => setRegenerated(false), 3000);
   };
 
+  // ── Download: render SVG to canvas → PNG ──────────────────────────────────
+  const handleDownload = () => {
+    const svgEl = document.getElementById("qr-preview-svg") as SVGSVGElement | null;
+    if (!svgEl) return;
+    const serializer = new XMLSerializer();
+    const svgStr = serializer.serializeToString(svgEl);
+    const svgBlob = new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = () => {
+      const pad = 24;
+      const textH = 40;
+      const canvas = document.createElement("canvas");
+      canvas.width  = img.width  + pad * 2;
+      canvas.height = img.height + pad * 2 + textH;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, pad, pad);
+      ctx.font = "bold 11px monospace";
+      ctx.fillStyle = "#475569";
+      ctx.textAlign = "center";
+      ctx.fillText(`NSS-001  |  ${active.label}`, canvas.width / 2, img.height + pad + 20);
+      ctx.fillStyle = "#16a34a";
+      ctx.font = "9px monospace";
+      ctx.fillText(active.code.slice(0, 48), canvas.width / 2, img.height + pad + 36);
+      canvas.toBlob(blob => {
+        if (!blob) return;
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `DVLA-QR-NSS-001-${active.key}.png`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }, "image/png");
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  // ── Print: open styled popup window ───────────────────────────────────────
+  const handlePrint = () => {
+    const svgEl = document.getElementById("qr-preview-svg") as SVGSVGElement | null;
+    const svgContent = svgEl ? new XMLSerializer().serializeToString(svgEl) : "";
+    const win = window.open("", "_blank", "width=400,height=520");
+    if (!win) { alert("Please allow pop-ups to print the QR code."); return; }
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>DVLA QR Code – NSS-001</title>
+        <style>
+          * { margin:0; padding:0; box-sizing:border-box; }
+          body { font-family: system-ui, sans-serif; background:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh; }
+          .card { border:2px solid #e2e8f0; border-radius:16px; padding:28px 24px; width:300px; display:flex; flex-direction:column; align-items:center; gap:16px; }
+          .logo-row { display:flex; align-items:center; gap:8px; }
+          .logo-row span { font-size:12px; font-weight:800; color:#0f172a; }
+          .logo-row small { font-size:9px; color:#475569; }
+          .qr-wrap { background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:10px; }
+          .name-row { font-size:13px; font-weight:700; color:#0f172a; }
+          .id-row   { font-size:10px; color:#475569; }
+          .token    { font-size:8px; font-family:monospace; color:#16a34a; word-break:break-all; text-align:center; }
+          .footer   { font-size:8px; color:#94a3b8; text-align:center; line-height:1.5; }
+          @media print { body { margin:0; } }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <div class="logo-row">
+            <span>DVLA Ghana</span>
+            <small>National Service Personnel</small>
+          </div>
+          <div class="qr-wrap">${svgContent}</div>
+          <div class="name-row">John Doe</div>
+          <div class="id-row">NSS-001 &nbsp;·&nbsp; ${active.label}</div>
+          <div class="token">${active.code}</div>
+          <div class="footer">Driver &amp; Vehicle Licensing Authority · Republic of Ghana<br/>This QR is cryptographically secured — no personal data is embedded.</div>
+        </div>
+        <script>window.onload = () => { window.print(); window.close(); }</script>
+      </body>
+      </html>
+    `);
+    win.document.close();
+  };
+
   const btnBase: React.CSSProperties = {
     display:"flex", alignItems:"center", justifyContent:"center", gap:7,
     padding:"9px 14px", borderRadius:9, cursor:"pointer", fontSize:12, fontWeight:600, border:`1px solid ${C.border}`,
@@ -175,7 +259,7 @@ export default function QrManagementPage() {
               <h1 style={{ fontSize:22, fontWeight:800, color:C.primaryDark, margin:0, letterSpacing:"-0.03em" }}>QR Code Management</h1>
             </div>
             <p style={{ fontSize:12, color:C.outerGreen, margin:0 }}>
-              Configure payload strategy, preview codes, and manage token security for employee QR tags.
+              Configure payload strategy, preview codes, and manage token security for NSS Personnel QR tags.
             </p>
           </div>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
@@ -195,7 +279,7 @@ export default function QrManagementPage() {
           <div style={{ background:"#fff", borderRadius:16, border:`1px solid ${C.border}`, overflow:"hidden" }}>
             <div style={{ padding:"18px 20px", borderBottom:`1px solid ${C.surface2}` }}>
               <div style={{ fontWeight:700, fontSize:14, color:C.primaryDark }}>QR Payload Strategy</div>
-              <div style={{ fontSize:11, color:C.outerGreen, marginTop:3 }}>Employee details stay in your database — only a token or ID is embedded in the QR.</div>
+              <div style={{ fontSize:11, color:C.outerGreen, marginTop:3 }}>Personnel details stay in your database — only a token or ID is embedded in the QR.</div>
             </div>
 
             <div style={{ padding:"18px 20px", display:"flex", flexDirection:"column", gap:18 }}>
@@ -255,8 +339,8 @@ export default function QrManagementPage() {
                 <div>
                   <div style={{ fontSize:12, fontWeight:700, color:C.primaryDark, marginBottom:4 }}>Backend Integration Note</div>
                   <p style={{ fontSize:11, color:C.outerGreen, margin:0, lineHeight:1.6 }}>
-                    When a new employee is created, call your backend to generate a secure token and store it alongside the employee record.
-                    The QR image printed on the employee&#39;s tag must contain <strong style={{ color:C.primaryDark }}>only that token</strong> — never name, email, or phone number directly.
+                    When a new NSS Personnel is registered, call your backend to generate a secure token and store it alongside the personnel record.
+                    The QR image printed on the personnel&#39;s tag must contain <strong style={{ color:C.primaryDark }}>only that token</strong> — never name, email, or phone number directly.
                   </p>
                 </div>
               </div>
@@ -280,18 +364,18 @@ export default function QrManagementPage() {
           <div style={{ background:"#fff", borderRadius:16, border:`1px solid ${C.border}`, overflow:"hidden" }}>
             <div style={{ padding:"18px 20px", borderBottom:`1px solid ${C.surface2}` }}>
               <div style={{ fontWeight:700, fontSize:14, color:C.primaryDark }}>Sample QR Preview</div>
-              <div style={{ fontSize:11, color:C.outerGreen, marginTop:3 }}>Print or download onto the employee&#39;s physical ID tag.</div>
+              <div style={{ fontSize:11, color:C.outerGreen, marginTop:3 }}>Print or download onto the personnel&#39;s physical ID tag.</div>
             </div>
 
             <div style={{ padding:"20px", display:"flex", flexDirection:"column", gap:14 }}>
 
               {/* QR graphic */}
               <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14, padding:"20px 16px", borderRadius:12, background:C.surface, border:`1px solid ${C.border}` }}>
-                {/* Employee chip */}
+                {/* Personnel chip */}
                 <div style={{ display:"flex", alignItems:"center", gap:8, padding:"6px 14px", borderRadius:100, background:C.primaryDark }}>
                   <div style={{ width:22, height:22, borderRadius:6, background:"#eab308", color:C.primaryDark, display:"flex", alignItems:"center", justifyContent:"center", fontSize:9, fontWeight:800 }}>JD</div>
                   <span style={{ fontSize:11, fontWeight:600, color:"#fff" }}>John Doe</span>
-                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.45)" }}>EMP-001</span>
+                  <span style={{ fontSize:10, color:"rgba(255,255,255,0.45)" }}>NSS-001</span>
                 </div>
 
                 {/* QR */}
@@ -324,10 +408,10 @@ export default function QrManagementPage() {
 
               {/* Buttons */}
               <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
-                <button style={{ ...btnBase, background:"#fff", color:C.primaryDark }}>
+                <button onClick={handleDownload} style={{ ...btnBase, background:"#fff", color:C.primaryDark }}>
                   <Download size={13} /> Download
                 </button>
-                <button style={{ ...btnBase, background:"#fff", color:C.primaryDark }}>
+                <button onClick={handlePrint} style={{ ...btnBase, background:"#fff", color:C.primaryDark }}>
                   <Printer size={13} /> Print
                 </button>
                 <button
