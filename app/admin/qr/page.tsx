@@ -121,17 +121,18 @@ export default function QrManagementPage() {
   const [showRegen, setShowRegen]     = useState(false);
   const [regenerated, setRegenerated] = useState(false);
   const [selectedPersonnel, setSelectedPersonnel] = useState<PersonnelRecord>(PERSONNEL_REGISTRY[0]);
+  const [tokenTimestamp, setTokenTimestamp] = useState<number>(1775000000000);
 
   const activeMode = MODES.find(m => m.key === mode)!;
 
-  // Build the QR token value based on mode
+  // Build the QR token value based on mode (deterministic timestamp avoids SSR hydration mismatch)
   const qrValue = (() => {
     const base = selectedPersonnel.token;
     if (mode === "uuid")      return base; // plain token / UUID-style
-    if (mode === "encrypted") return btoa(`{"t":"${base}","exp":${Date.now() + 86400000}}`);
+    if (mode === "encrypted") return btoa(`{"t":"${base}","exp":${tokenTimestamp + 86400000}}`);
     // signed: simple base64 JWT-style demo
     const header  = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
-    const payload = btoa(JSON.stringify({ sub: selectedPersonnel.id, iat: Math.floor(Date.now()/1000) }));
+    const payload = btoa(JSON.stringify({ sub: selectedPersonnel.id, iat: Math.floor(tokenTimestamp/1000) }));
     return `${header}.${payload}.DVLA_DEMO_SIG`;
   })();
 
@@ -142,6 +143,7 @@ export default function QrManagementPage() {
   };
 
   const handleRegen = () => {
+    setTokenTimestamp(Date.now());
     setRegenerated(true);
     setShowRegen(false);
     setTimeout(() => setRegenerated(false), 3000);
@@ -407,7 +409,7 @@ export default function QrManagementPage() {
 
                 {/* Real QR Code */}
                 <div style={{ background:"#fff", padding:12, borderRadius:10, border:`1.5px solid ${C.border}`, boxShadow:"0 2px 12px rgba(0,0,0,0.08)" }}>
-                  <QRCanvas key={`${selectedPersonnel.id}-${mode}-${regenerated}`} value={qrValue} size={180} />
+                  <QRCanvas key={`${selectedPersonnel.id}-${mode}-${regenerated}-${tokenTimestamp}`} value={qrValue} size={180} />
                 </div>
 
                 <span style={{ fontSize:10, color:C.outerGreen }}>
@@ -425,7 +427,10 @@ export default function QrManagementPage() {
 
               {/* Token display */}
               <div style={{ borderRadius:10, background:C.primaryDark, padding:"10px 12px", display:"flex", alignItems:"center", gap:8 }}>
-                <code style={{ fontSize:10, color:"#86efac", fontFamily:"monospace", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                <code
+                  suppressHydrationWarning
+                  style={{ fontSize:10, color:"#86efac", fontFamily:"monospace", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}
+                >
                   {qrValue}
                 </code>
                 <button onClick={handleCopy} style={{ background:"none", border:"none", cursor:"pointer", color: copied ? "#eab308" : "rgba(255,255,255,0.35)", flexShrink:0, padding:4, transition:"color 0.2s" }}>

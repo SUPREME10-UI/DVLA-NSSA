@@ -995,11 +995,11 @@ export default function PersonnelPage() {
 
           {/* Table */}
           <div style={{ overflowX:"auto" }}>
-            <table style={{ width:"100%",borderCollapse:"collapse",fontSize:12 }}>
+            <table style={{ width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:1100 }}>
               <thead>
                 <tr style={{ background:C.surface,borderBottom:`1px solid ${C.border}` }}>
                   {["Personnel","NSS ID","Department","Contact","Status","Added","QR Code","Actions"].map(h=>(
-                    <th key={h} style={{ padding:"10px 16px",textAlign:"left",fontSize:10,fontWeight:700,letterSpacing:"0.10em",textTransform:"uppercase",color:C.outerGreen,whiteSpace:"nowrap" }}>{h}</th>
+                    <th key={h} style={{ padding:"12px 20px",textAlign:"left",fontSize:10,fontWeight:700,letterSpacing:"0.10em",textTransform:"uppercase",color:C.outerGreen,whiteSpace:"nowrap" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -1011,64 +1011,64 @@ export default function PersonnelPage() {
                   return (
                     <tr key={emp.id} className="emp-row" style={{ borderBottom:i<filtered.length-1?`1px solid ${C.surface2}`:"none" }} onClick={() => setViewPersonnel(emp)}>
 
-                      <td style={{ padding:"13px 16px" }}>
-                        <div style={{ display:"flex",alignItems:"center",gap:11 }}>
+                      <td style={{ padding:"14px 20px" }}>
+                        <div style={{ display:"flex",alignItems:"center",gap:12 }}>
                           <div style={{ width:36,height:36,borderRadius:10,flexShrink:0,background:AVATAR_COLORS[emp.id]??C.primary,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,opacity:isActive?1:0.45 }}>{emp.avatar}</div>
-                          <div style={{ fontWeight:600,color:isActive?C.primaryDark:C.outerGreen }}>{emp.name}</div>
+                          <div style={{ fontWeight:600,color:isActive?C.primaryDark:C.outerGreen,whiteSpace:"nowrap" }}>{emp.name}</div>
                         </div>
                       </td>
 
                       {/* NSS ID column */}
-                      <td style={{ padding:"13px 16px" }}>
+                      <td style={{ padding:"14px 20px" }}>
                         <span style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:7,background:C.surface2,border:`1px solid ${C.border}`,fontFamily:"monospace",fontSize:11,fontWeight:700,color:C.primaryDark,letterSpacing:"0.04em",whiteSpace:"nowrap" }}>
                           {emp.id}
                         </span>
                       </td>
 
-                      <td style={{ padding:"13px 16px" }}>
-                        <span style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"3px 9px",borderRadius:6,background:C.surface2,color:C.primaryDark,fontSize:11,fontWeight:500 }}>
-                          <Building2 size={10} color={C.outerGreen}/>{emp.department}
+                      <td style={{ padding:"14px 20px" }}>
+                        <span style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:6,background:C.surface2,color:C.primaryDark,fontSize:11,fontWeight:500,whiteSpace:"nowrap" }}>
+                          <Building2 size={11} color={C.outerGreen}/>{emp.department}
                         </span>
                       </td>
 
-                      <td style={{ padding:"13px 16px" }}>
+                      <td style={{ padding:"14px 20px" }}>
                         <div style={{ display:"flex",flexDirection:"column",gap:3 }}>
-                          <span style={{ display:"flex",alignItems:"center",gap:5,fontSize:11,color:C.primaryDark }}><Mail size={10} color={C.outerGreen}/>{emp.email}</span>
-                          <span style={{ display:"flex",alignItems:"center",gap:5,fontSize:10,color:C.outerGreen }}><Phone size={10} color={C.outerGreen}/>{emp.phone}</span>
+                          <span style={{ display:"flex",alignItems:"center",gap:5,fontSize:11,color:C.primaryDark,whiteSpace:"nowrap" }}><Mail size={11} color={C.outerGreen}/>{emp.email}</span>
+                          <span style={{ display:"flex",alignItems:"center",gap:5,fontSize:10,color:C.outerGreen,whiteSpace:"nowrap" }}><Phone size={10} color={C.outerGreen}/>{emp.phone}</span>
                         </div>
                       </td>
 
-                      <td style={{ padding:"13px 16px" }}>
-                        <span style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:100,fontSize:11,fontWeight:600,background:isActive?"#ecfdf5":C.surface2,color:isActive?C.primary:C.outerGreen,border:`1px solid ${isActive?"rgba(22,163,74,0.2)":C.border}` }}>
+                      <td style={{ padding:"14px 20px" }}>
+                        <span style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:100,fontSize:11,fontWeight:600,background:isActive?"#ecfdf5":C.surface2,color:isActive?C.primary:C.outerGreen,border:`1px solid ${isActive?"rgba(22,163,74,0.2)":C.border}`,whiteSpace:"nowrap" }}>
                           <span style={{ width:6,height:6,borderRadius:"50%",background:isActive?C.primary:C.outerGreen,flexShrink:0 }}/>
                           {emp.status}
                         </span>
                       </td>
 
-                      <td style={{ padding:"13px 16px" }}>
+                      <td style={{ padding:"14px 20px" }}>
                         <span style={{ display:"inline-flex",alignItems:"center",gap:5,fontSize:11,color:C.outerGreen,whiteSpace:"nowrap" }}>
                           <CalendarDays size={11} color={C.outerGreen}/>
                           {new Date(emp.dateAdded).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}
                         </span>
                       </td>
 
-                      <td style={{ padding:"13px 16px" }}>
-                        <button onClick={()=>setQrEmp(emp)} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"6px 13px",borderRadius:8,cursor:"pointer",border:`1.5px solid ${C.border}`,background:"#fff",color:C.primaryDark,fontSize:11,fontWeight:600,whiteSpace:"nowrap" }}>
+                      <td style={{ padding:"14px 20px" }}>
+                        <button onClick={(e)=>{e.stopPropagation();setQrEmp(emp);}} style={{ display:"inline-flex",alignItems:"center",gap:6,padding:"6px 13px",borderRadius:8,cursor:"pointer",border:`1.5px solid ${C.border}`,background:"#fff",color:C.primaryDark,fontSize:11,fontWeight:600,whiteSpace:"nowrap" }}>
                           <QrCode size={13} color={C.primary}/> View QR
                         </button>
                       </td>
 
-                      <td style={{ padding:"13px 16px" }}>
-                        <div style={{ display:"flex",gap:6,alignItems:"center",flexWrap:"wrap" }}>
-                          <button onClick={()=>setEditPersonnel(emp)} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"6px 11px",borderRadius:8,cursor:"pointer",border:`1.5px solid ${C.border}`,background:"#fff",color:C.primaryDark,fontSize:11,fontWeight:600 }}>
+                      <td style={{ padding:"14px 20px" }}>
+                        <div style={{ display:"flex",gap:6,alignItems:"center",whiteSpace:"nowrap" }}>
+                          <button onClick={(e)=>{e.stopPropagation();setEditPersonnel(emp);}} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"6px 11px",borderRadius:8,cursor:"pointer",border:`1.5px solid ${C.border}`,background:"#fff",color:C.primaryDark,fontSize:11,fontWeight:600 }}>
                             <Pencil size={11}/> Edit
                           </button>
-                          <button onClick={()=>toggleStatus(emp.id)} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"6px 11px",borderRadius:8,cursor:"pointer",border:`1px solid ${C.border}`,background:C.surface2,color:C.primaryDark,fontSize:11,fontWeight:600 }}>
+                          <button onClick={(e)=>{e.stopPropagation();toggleStatus(emp.id);}} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"6px 11px",borderRadius:8,cursor:"pointer",border:`1.5px solid ${C.border}`,background:C.surface2,color:C.primaryDark,fontSize:11,fontWeight:600 }}>
                             {isActive
                               ? <><ToggleLeft size={12} color={C.outerGreen}/> Deactivate</>
                               : <><ToggleRight size={12} color={C.primary}/> Activate</>}
                           </button>
-                          <button onClick={()=>setDeleteId(emp.id)} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"6px 11px",borderRadius:8,cursor:"pointer",border:"1px solid rgba(220,38,38,0.2)",background:"#fef2f2",color:C.red,fontSize:11,fontWeight:600 }}>
+                          <button onClick={(e)=>{e.stopPropagation();setDeleteId(emp.id);}} style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"6px 11px",borderRadius:8,cursor:"pointer",border:"1px solid rgba(220,38,38,0.2)",background:"#fef2f2",color:C.red,fontSize:11,fontWeight:600 }}>
                             <Trash2 size={11}/> Delete
                           </button>
                         </div>

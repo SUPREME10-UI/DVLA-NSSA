@@ -157,37 +157,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 </div>
               )}
             </div>
-
-            {!collapsed && (
-              <button
-                onClick={toggleCollapsed}
-                title="Collapse sidebar"
-                aria-label="Collapse sidebar"
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 6,
-                  borderRadius: 6,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: C.outerGreen,
-                  transition: "all 0.15s ease",
-                  flexShrink: 0,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = C.surface2;
-                  e.currentTarget.style.color = C.primaryDark;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = C.outerGreen;
-                }}
-              >
-                <PanelLeftClose size={17} />
-              </button>
-            )}
           </div>
 
           {/* Nav label */}
@@ -289,77 +258,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
           {/* Sidebar Footer */}
           <div style={{
-            padding: collapsed ? "12px 8px" : "12px 14px",
+            padding: collapsed ? "14px 8px" : "14px 16px",
             borderTop: `1px solid ${C.border}`,
             display: "flex",
             alignItems: "center",
-            justifyContent: collapsed ? "center" : "space-between",
+            justifyContent: collapsed ? "center" : "flex-start",
+            gap: 8,
           }}>
-            {!collapsed ? (
-              <>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}>
-                  <ShieldCheck size={14} color={C.outerGreen} style={{ flexShrink: 0 }} />
-                  <span style={{ fontSize: 10, color: C.outerGreen, fontWeight: 500, whiteSpace: "nowrap" }}>
-                    Secure internal use only
-                  </span>
-                </div>
-                <button
-                  onClick={toggleCollapsed}
-                  title="Collapse sidebar"
-                  aria-label="Collapse sidebar"
-                  style={{
-                    background: "transparent",
-                    border: "none",
-                    cursor: "pointer",
-                    padding: 5,
-                    borderRadius: 6,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: C.outerGreen,
-                    transition: "all 0.15s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = C.surface2;
-                    e.currentTarget.style.color = C.primaryDark;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "transparent";
-                    e.currentTarget.style.color = C.outerGreen;
-                  }}
-                >
-                  <PanelLeftClose size={15} />
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={toggleCollapsed}
-                title="Expand sidebar"
-                aria-label="Expand sidebar"
-                style={{
-                  background: "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: 8,
-                  borderRadius: 8,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: C.outerGreen,
-                  width: "100%",
-                  transition: "all 0.15s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = C.surface2;
-                  e.currentTarget.style.color = C.primaryDark;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = C.outerGreen;
-                }}
-              >
-                <PanelLeftOpen size={17} />
-              </button>
+            <ShieldCheck size={14} color={C.outerGreen} style={{ flexShrink: 0 }} />
+            {!collapsed && (
+              <span style={{ fontSize: 10, color: C.outerGreen, fontWeight: 500, whiteSpace: "nowrap" }}>
+                Secure internal use only
+              </span>
             )}
           </div>
         </aside>
@@ -549,7 +459,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             padding: "28px 32px",
             background: C.surface,
           }}>
-            <div style={{ maxWidth: 1100, margin: "0 auto", width: "100%" }}>
+            <div style={{ maxWidth: 1480, margin: "0 auto", width: "100%" }}>
               {children}
             </div>
           </main>
