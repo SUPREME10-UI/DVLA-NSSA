@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import {
   Users, UserPlus, Upload, Search, Building2, Mail, Phone,
   QrCode, Pencil, Trash2, CalendarDays, ChevronDown,
@@ -9,6 +9,8 @@ import {
 } from "lucide-react";
 import { downloadCSV } from "../../utils/export";
 import { useToast } from "../../components/Toast";
+import { PERSONNEL_REGISTRY } from "../../utils/personnelRegistry";
+import QRCode from "qrcode";
 
 const C = {
   primaryDark: "#0f172a",
@@ -43,43 +45,61 @@ const AVATAR_COLORS: Record<string, string> = {
 
 // ─── QR Modal ─────────────────────────────────────────────────────────────────
 function QRModal({ emp, onClose }: { emp: Personnel; onClose: () => void }) {
-  const [token] = useState(() =>
-    `SEC-${emp.id}-${Math.random().toString(36).slice(2, 9).toUpperCase()}`
-  );
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const handleDownload = () => {
-    const svgEl = document.getElementById(`qr-modal-svg-${emp.id}`) as SVGSVGElement | null;
-    if (!svgEl) return;
-    const svgStr = new XMLSerializer().serializeToString(svgEl);
-    const url = URL.createObjectURL(new Blob([svgStr], { type: "image/svg+xml;charset=utf-8" }));
-    const img = new Image();
-    img.onload = () => {
-      const pad = 20, textH = 44;
-      const canvas = document.createElement("canvas");
-      canvas.width  = img.width  + pad * 2;
-      canvas.height = img.height + pad * 2 + textH;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, pad, pad);
-      ctx.textAlign = "center";
-      ctx.font = "bold 11px sans-serif";
-      ctx.fillStyle = "#0f172a";
-      ctx.fillText(`${emp.name}  (${emp.id})`, canvas.width / 2, img.height + pad + 18);
-      ctx.font = "9px monospace";
-      ctx.fillStyle = "#16a34a";
-      ctx.fillText(token, canvas.width / 2, img.height + pad + 34);
-      canvas.toBlob(blob => {
-        if (!blob) return;
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `DVLA-QR-${emp.id}.png`;
-        a.click();
-        URL.revokeObjectURL(a.href);
-      }, "image/png");
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
+  // Look up the consistent token from the registry (falls back to a generated one)
+  const token = PERSONNEL_REGISTRY.find(p => p.id === emp.id)?.token
+    ?? `DVLA-NSS-${emp.id}-DEMO`;
+
+  // Render real QR code into canvas
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    QRCode.toCanvas(canvasRef.current, token, {
+      width: 180,
+      margin: 2,
+      color: { dark: "#0f172a", light: "#ffffff" },
+      errorCorrectionLevel: "M",
+    }).catch(console.error);
+  }, [token]);
+
+  const handleDownload = async () => {
+    try {
+      const dataUrl = await QRCode.toDataURL(token, {
+        width: 400,
+        margin: 3,
+        color: { dark: "#0f172a", light: "#ffffff" },
+        errorCorrectionLevel: "M",
+      });
+      const img = new Image();
+      img.onload = () => {
+        const pad = 20, textH = 44;
+        const canvas = document.createElement("canvas");
+        canvas.width  = img.width  + pad * 2;
+        canvas.height = img.height + pad * 2 + textH;
+        const ctx = canvas.getContext("2d")!;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, pad, pad);
+        ctx.textAlign = "center";
+        ctx.font = "bold 12px sans-serif";
+        ctx.fillStyle = "#0f172a";
+        ctx.fillText(`${emp.name}  (${emp.id})`, canvas.width / 2, img.height + pad + 18);
+        ctx.font = "9px monospace";
+        ctx.fillStyle = "#16a34a";
+        ctx.fillText(token.slice(0, 50), canvas.width / 2, img.height + pad + 34);
+        canvas.toBlob(blob => {
+          if (!blob) return;
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = `DVLA-QR-${emp.id}.png`;
+          a.click();
+          URL.revokeObjectURL(a.href);
+        }, "image/png");
+      };
+      img.src = dataUrl;
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -98,31 +118,18 @@ function QRModal({ emp, onClose }: { emp: Personnel; onClose: () => void }) {
             <div style={{ fontSize:11,color:C.outerGreen }}>{emp.id}</div>
           </div>
         </div>
-        <div style={{ width:180,height:180,background:C.surface2,borderRadius:12,border:`2px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"center" }}>
-          <svg id={`qr-modal-svg-${emp.id}`} width="160" height="160" viewBox="0 0 160 160" xmlns="http://www.w3.org/2000/svg">
-            {[[10,10],[10,110],[110,10]].map(([x,y],i)=>(
-              <g key={i}>
-                <rect x={x} y={y} width={40} height={40} rx={3} fill={C.primaryDark}/>
-                <rect x={x+6} y={y+6} width={28} height={28} rx={2} fill="#fff"/>
-                <rect x={x+12} y={y+12} width={16} height={16} rx={1} fill={C.primaryDark}/>
-              </g>
-            ))}
-            {Array.from({length:80}).map((_,i)=>{
-              const col=i%10,row=Math.floor(i/10);
-              if((col<4&&row<4)||(col<4&&row>6)||(col>6&&row<4)) return null;
-              if((i*37+13)%3===0) return null;
-              return <rect key={i} x={10+col*14} y={10+row*14} width={11} height={11} rx={1.5} fill={C.primaryDark}/>;
-            })}
-          </svg>
+        <div style={{ background:"#fff",borderRadius:12,border:`2px solid ${C.border}`,padding:8,boxShadow:"0 2px 12px rgba(0,0,0,0.06)" }}>
+          <canvas ref={canvasRef} width={180} height={180} style={{ borderRadius:8,display:"block" }} />
         </div>
-        <div style={{ background:C.surface2,borderRadius:9,padding:"8px 14px",fontSize:10,fontFamily:"monospace",color:C.outerGreen,letterSpacing:"0.06em",border:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:7 }}>
-          <Shield size={10} color={C.primary}/>{token}
+        <div style={{ background:C.surface2,borderRadius:9,padding:"8px 14px",fontSize:10,fontFamily:"monospace",color:C.outerGreen,letterSpacing:"0.06em",border:`1px solid ${C.border}`,display:"flex",alignItems:"center",gap:7,maxWidth:"100%",overflow:"hidden" }}>
+          <Shield size={10} color={C.primary}/>
+          <span style={{ overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{token}</span>
         </div>
         <button onClick={handleDownload} style={{ width:"100%",padding:"10px",borderRadius:10,border:"none",background:C.primary,color:"#fff",fontWeight:700,fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:7 }}>
           <Download size={13}/> Download QR Code
         </button>
         <p style={{ margin:0,fontSize:10,color:C.outerGreen,textAlign:"center",lineHeight:1.5 }}>
-          Secure token only — no raw personal data embedded in payload.
+          Real scannable QR — token only, no personal data embedded.
         </p>
       </div>
     </div>
@@ -130,36 +137,128 @@ function QRModal({ emp, onClose }: { emp: Personnel; onClose: () => void }) {
 }
 
 // ─── Add Personnel Modal ───────────────────────────────────────────────────────
-function AddPersonnelModal({ onClose, onAdd }: { onClose:()=>void; onAdd:(e:Personnel)=>void }) {
+function AddPersonnelModal({ onClose, onAdd, existingIds = [] }: { onClose:()=>void; onAdd:(e:Personnel)=>void; existingIds?: string[] }) {
   const depts = ["Operations","HR","Finance","IT","Sales","Marketing"];
-  const [form,setForm] = useState({ name:"",department:"Operations",email:"",phone:"" });
-  const set = (k:string,v:string) => setForm(f=>({...f,[k]:v}));
+  const [form,setForm] = useState({ nssId:"",name:"",department:"Operations",email:"",phone:"" });
+  const [idError,setIdError] = useState("");
+  const set = (k:string,v:string) => { setForm(f=>({...f,[k]:v})); if (k==="nssId") setIdError(""); };
   const lbl: React.CSSProperties = { fontSize:10,fontWeight:700,letterSpacing:"0.08em",textTransform:"uppercase" as const,color:C.outerGreen,marginBottom:4,display:"block" };
   const inp: React.CSSProperties = { width:"100%",padding:"8px 12px",borderRadius:9,border:`1.5px solid ${C.border}`,background:"#fff",fontSize:12,color:C.primaryDark,fontFamily:"inherit",outline:"none",boxSizing:"border-box" as const };
+  const inpErr: React.CSSProperties = { ...inp, border:`1.5px solid ${C.red}` };
+
   const handleAdd = () => {
-    if (!form.name||!form.email) return;
-    const id = `NSS-${String(Math.floor(Math.random()*900+100))}`;
-    onAdd({...form,id,status:"Active",dateAdded:new Date().toISOString().split("T")[0],avatar:form.name.split(" ").map(p=>p[0]).join("").slice(0,2).toUpperCase()});
+    const rawId = form.nssId.trim().toUpperCase();
+    if (!rawId) {
+      setIdError("NSS ID is required — it cannot be left blank.");
+      return;
+    }
+    if (rawId.length < 3) {
+      setIdError("Please enter a valid NSS ID (at least 3 characters).");
+      return;
+    }
+    if (existingIds.some(eid => eid.toUpperCase() === rawId)) {
+      setIdError(`NSS ID "${rawId}" is already registered to another personnel.`);
+      return;
+    }
+    if (!form.name.trim()) return;
+    if (!form.email.trim()) return;
+
+    onAdd({
+      id: rawId,
+      name: form.name.trim(),
+      department: form.department,
+      email: form.email.trim(),
+      phone: form.phone.trim() || "+233 24 000 0000",
+      status: "Active",
+      dateAdded: new Date().toISOString().split("T")[0],
+      avatar: form.name.trim().split(" ").map(p=>p[0]).join("").slice(0,2).toUpperCase() || "NS"
+    });
     onClose();
   };
+
+  const isFormValid = Boolean(form.nssId.trim() && form.name.trim() && form.email.trim() && !idError);
+
   return (
     <div onClick={onClose} style={{ position:"fixed",inset:0,zIndex:1000,background:"rgba(15,23,42,0.55)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center" }}>
-      <div onClick={e=>e.stopPropagation()} style={{ background:"#fff",borderRadius:20,padding:28,width:380,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",display:"flex",flexDirection:"column",gap:16 }}>
+      <div onClick={e=>e.stopPropagation()} style={{ background:"#fff",borderRadius:20,padding:28,width:420,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",display:"flex",flexDirection:"column",gap:16 }}>
         <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-          <span style={{ fontWeight:800,fontSize:15,color:C.primaryDark }}>Add New Personnel</span>
+          <div>
+            <span style={{ fontWeight:800,fontSize:15,color:C.primaryDark,display:"block" }}>Add New Personnel</span>
+            <span style={{ fontSize:11,color:C.outerGreen }}>Enter the personnel's official NSS credentials and details</span>
+          </div>
           <button onClick={onClose} style={{ border:"none",background:C.surface2,borderRadius:7,width:28,height:28,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center" }}>
             <X size={13} color={C.outerGreen}/>
           </button>
         </div>
         <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
-          <div><label style={lbl}>Full Name *</label><input style={inp} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="e.g. Jane Smith"/></div>
-          <div><label style={lbl}>Department</label><select style={{...inp,appearance:"none"}} value={form.department} onChange={e=>set("department",e.target.value)}>{depts.map(d=><option key={d}>{d}</option>)}</select></div>
-          <div><label style={lbl}>Email *</label><input style={inp} type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="jane@example.com"/></div>
-          <div><label style={lbl}>Phone</label><input style={inp} value={form.phone} onChange={e=>set("phone",e.target.value)} placeholder="+44 7700 900000"/></div>
+
+          {/* 1. Full Name */}
+          <div>
+            <label style={lbl}>Full Name *</label>
+            <input style={inp} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="e.g. Jane Smith"/>
+          </div>
+
+          {/* 2. Email */}
+          <div>
+            <label style={lbl}>Email *</label>
+            <input style={inp} type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="jane@dvla.gov.gh"/>
+          </div>
+
+          {/* 3. NSS ID */}
+          <div>
+            <label style={lbl}>NSS ID *</label>
+            <div style={{ position:"relative" }}>
+              <input
+                style={idError ? inpErr : inp}
+                value={form.nssId}
+                onChange={e=>set("nssId",e.target.value.toUpperCase())}
+                placeholder="e.g. NSS-072 or NSSGHA123456"
+                maxLength={20}
+              />
+              {form.nssId.trim().length >= 3 && !idError && (
+                <span style={{ position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:13,color:C.primary,fontWeight:700 }}>✓</span>
+              )}
+            </div>
+            {idError
+              ? <span style={{ fontSize:10,color:C.red,marginTop:4,display:"block" }}>{idError}</span>
+              : <span style={{ fontSize:10,color:C.outerGreen,marginTop:4,display:"block" }}>Official NSS number assigned by the scheme (e.g. NSS-072)</span>
+            }
+          </div>
+
+          {/* 4. Department */}
+          <div>
+            <label style={lbl}>Department</label>
+            <select style={{...inp,appearance:"none"}} value={form.department} onChange={e=>set("department",e.target.value)}>
+              {depts.map(d=><option key={d}>{d}</option>)}
+            </select>
+          </div>
+
+          {/* 5. Phone */}
+          <div>
+            <label style={lbl}>Phone</label>
+            <input style={inp} value={form.phone} onChange={e=>set("phone",e.target.value)} placeholder="+233 24 000 0000"/>
+          </div>
+
         </div>
-        <div style={{ display:"flex",gap:10,justifyContent:"flex-end" }}>
+        <div style={{ display:"flex",gap:10,justifyContent:"flex-end",marginTop:4 }}>
           <button onClick={onClose} style={{ padding:"9px 18px",borderRadius:9,border:`1px solid ${C.border}`,background:"#fff",color:C.primaryDark,fontSize:12,fontWeight:600,cursor:"pointer" }}>Cancel</button>
-          <button onClick={handleAdd} style={{ padding:"9px 18px",borderRadius:9,border:"none",background:C.primary,color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer" }}>Add Personnel</button>
+          <button
+            onClick={handleAdd}
+            disabled={!isFormValid}
+            style={{
+              padding:"9px 18px",
+              borderRadius:9,
+              border:"none",
+              background:isFormValid?C.primary:C.surface2,
+              color:isFormValid?"#fff":C.outerGreen,
+              fontSize:12,
+              fontWeight:700,
+              cursor:isFormValid?"pointer":"not-allowed",
+              transition:"all 0.15s ease"
+            }}
+          >
+            Add Personnel
+          </button>
         </div>
       </div>
     </div>
@@ -203,8 +302,8 @@ function EditPersonnelModal({ personnel, onClose, onSave }: { personnel:Personne
         </div>
         <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
           <div><label style={lbl}>Full Name *</label><input style={inp} value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Full Name"/></div>
-          <div><label style={lbl}>Department</label><select style={{...inp,appearance:"none"}} value={form.department} onChange={e=>set("department",e.target.value)}>{depts.map(d=><option key={d}>{d}</option>)}</select></div>
           <div><label style={lbl}>Email *</label><input style={inp} type="email" value={form.email} onChange={e=>set("email",e.target.value)} placeholder="email@dvla.gov.gh"/></div>
+          <div><label style={lbl}>Department</label><select style={{...inp,appearance:"none"}} value={form.department} onChange={e=>set("department",e.target.value)}>{depts.map(d=><option key={d}>{d}</option>)}</select></div>
           <div><label style={lbl}>Phone</label><input style={inp} value={form.phone} onChange={e=>set("phone",e.target.value)} placeholder="+233 24 000 0000"/></div>
           <div>
             <label style={lbl}>Status</label>
@@ -242,16 +341,39 @@ function BulkImportModal({
     if (lines.length <= 1) return [];
 
     const records: Personnel[] = [];
-    const startIndex = lines[0].toLowerCase().includes("name") ? 1 : 0;
+    const startIndex = lines[0].toLowerCase().includes("name") || lines[0].toLowerCase().includes("nss") ? 1 : 0;
 
     for (let i = startIndex; i < lines.length; i++) {
       const parts = lines[i].split(",").map(p => p.trim().replace(/^["']|["']$/g, ""));
       if (parts.length >= 2 && parts[0]) {
-        const name = parts[0];
-        const department = parts[1] || "Operations";
-        const email = parts[2] || `${name.toLowerCase().replace(/\s+/g, ".")}@dvla.gov.gh`;
-        const phone = parts[3] || "+233 24 000 0000";
-        const id = `NSS-${String(Math.floor(Math.random() * 899 + 100))}`;
+        let id = "";
+        let name = "";
+        let department = "Operations";
+        let email = "";
+        let phone = "+233 24 000 0000";
+
+        // Check if format is Full Name, Email, NSS ID, Department, Phone (email in column 1)
+        if (parts[1] && parts[1].includes("@")) {
+          name = parts[0] || "";
+          email = parts[1];
+          id = (parts[2] || "").toUpperCase();
+          department = parts[3] || "Operations";
+          phone = parts[4] || "+233 24 000 0000";
+        } else if (parts.length >= 5 || parts[0].toUpperCase().startsWith("NSS")) {
+          // Alternative format: NSS ID, Full Name, Department, Email, Phone
+          id = parts[0].toUpperCase();
+          name = parts[1] || "";
+          department = parts[2] || "Operations";
+          email = parts[3] || `${name.toLowerCase().replace(/\s+/g, ".")}@dvla.gov.gh`;
+          phone = parts[4] || "+233 24 000 0000";
+        } else {
+          name = parts[0];
+          email = parts[1] || `${name.toLowerCase().replace(/\s+/g, ".")}@dvla.gov.gh`;
+          id = (parts[2] || `NSS-${String(i + 100).padStart(3, "0")}`).toUpperCase();
+          department = parts[3] || "Operations";
+          phone = parts[4] || "+233 24 000 0000";
+        }
+        if (!name || !id) continue;
         const avatar = name.split(" ").map(p => p[0]).join("").slice(0, 2).toUpperCase() || "NS";
 
         records.push({
@@ -282,15 +404,15 @@ function BulkImportModal({
   };
 
   const handleDownloadTemplate = () => {
-    const headers = ["Full Name", "Department", "Email", "Phone"];
+    const headers = ["Full Name", "Email", "NSS ID", "Department", "Phone"];
     const rows = [
-      ["Kwame Mensah", "Operations", "kwame.mensah@dvla.gov.gh", "+233 24 123 4567"],
-      ["Abena Osei", "IT", "abena.osei@dvla.gov.gh", "+233 20 987 6543"],
-      ["Kofi Antwi", "HR", "kofi.antwi@dvla.gov.gh", "+233 55 456 7890"],
-      ["Akosua Sarpong", "Finance", "akosua.sarpong@dvla.gov.gh", "+233 27 345 6789"],
+      ["Kwame Mensah", "kwame.mensah@dvla.gov.gh", "NSS-081", "Operations", "+233 24 123 4567"],
+      ["Abena Osei", "abena.osei@dvla.gov.gh", "NSS-082", "IT", "+233 20 987 6543"],
+      ["Kofi Antwi", "kofi.antwi@dvla.gov.gh", "NSS-083", "HR", "+233 55 456 7890"],
+      ["Akosua Sarpong", "akosua.sarpong@dvla.gov.gh", "NSS-084", "Finance", "+233 27 345 6789"],
     ];
     downloadCSV("DVLA-NSS-Personnel-Template.csv", headers, rows);
-    showToast("Downloaded sample CSV template", "info");
+    showToast("Downloaded sample CSV template (Full Name, Email, NSS ID, Department, Phone)", "info");
   };
 
   const handleDoImport = () => {
@@ -722,8 +844,13 @@ export default function PersonnelPage() {
         .spin-icon { animation: spin 0.8s linear infinite; }
       `}</style>
 
-      {qrEmp && <QRModal emp={qrEmp} onClose={()=>setQrEmp(null)}/>}
-      {showAdd && <AddPersonnelModal onClose={()=>setShowAdd(false)} onAdd={emp=>setPersonnelList(prev=>[...prev,emp])}/>}
+      {showAdd && (
+        <AddPersonnelModal
+          onClose={()=>setShowAdd(false)}
+          onAdd={emp=>setPersonnelList(prev=>[...prev,emp])}
+          existingIds={personnelList.map(p=>p.id)}
+        />
+      )}
       {showBulkImport && (
         <BulkImportModal
           onClose={()=>setShowBulkImport(false)}
@@ -871,14 +998,14 @@ export default function PersonnelPage() {
             <table style={{ width:"100%",borderCollapse:"collapse",fontSize:12 }}>
               <thead>
                 <tr style={{ background:C.surface,borderBottom:`1px solid ${C.border}` }}>
-                  {["Personnel","Department","Contact","Status","Added","QR Code","Actions"].map(h=>(
+                  {["Personnel","NSS ID","Department","Contact","Status","Added","QR Code","Actions"].map(h=>(
                     <th key={h} style={{ padding:"10px 16px",textAlign:"left",fontSize:10,fontWeight:700,letterSpacing:"0.10em",textTransform:"uppercase",color:C.outerGreen,whiteSpace:"nowrap" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.length===0 ? (
-                  <tr><td colSpan={7} style={{ textAlign:"center",padding:"48px 20px",color:C.outerGreen,fontSize:13 }}>No personnel match the current filters.</td></tr>
+                  <tr><td colSpan={8} style={{ textAlign:"center",padding:"48px 20px",color:C.outerGreen,fontSize:13 }}>No personnel match the current filters.</td></tr>
                 ) : filtered.map((emp,i)=>{
                   const isActive = emp.status==="Active";
                   return (
@@ -887,11 +1014,15 @@ export default function PersonnelPage() {
                       <td style={{ padding:"13px 16px" }}>
                         <div style={{ display:"flex",alignItems:"center",gap:11 }}>
                           <div style={{ width:36,height:36,borderRadius:10,flexShrink:0,background:AVATAR_COLORS[emp.id]??C.primary,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,opacity:isActive?1:0.45 }}>{emp.avatar}</div>
-                          <div>
-                            <div style={{ fontWeight:600,color:isActive?C.primaryDark:C.outerGreen }}>{emp.name}</div>
-                            <div style={{ fontSize:10,color:C.outerGreen,opacity:0.7,marginTop:1 }}>{emp.id}</div>
-                          </div>
+                          <div style={{ fontWeight:600,color:isActive?C.primaryDark:C.outerGreen }}>{emp.name}</div>
                         </div>
+                      </td>
+
+                      {/* NSS ID column */}
+                      <td style={{ padding:"13px 16px" }}>
+                        <span style={{ display:"inline-flex",alignItems:"center",gap:5,padding:"4px 10px",borderRadius:7,background:C.surface2,border:`1px solid ${C.border}`,fontFamily:"monospace",fontSize:11,fontWeight:700,color:C.primaryDark,letterSpacing:"0.04em",whiteSpace:"nowrap" }}>
+                          {emp.id}
+                        </span>
                       </td>
 
                       <td style={{ padding:"13px 16px" }}>
